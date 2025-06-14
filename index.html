@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>小町算体験サイト</title>
+  <style>
+    body {
+  
+  font-family: "MS Mincho", "Hiragino Mincho Pro", "Noto Serif JP", serif;
+  margin: 20px;
+  font-size: 20px;
+  max-width: 1200px;
+  line-height: 1.6;
+  background-color: #f9f9f9;
+  color: #333;
+  background-image: url('./media/backimg1.png');
+
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: center;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 auto;
+  width: fit-content;
+  font-size: 36px;
+  color: #2c3e50;
+}
+
+h2 {
+  border-left: 6px solid #3498db;
+  padding-left: 10px;
+  color: #34495e;
+}
+
+.section {
+  background-color: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+input, button, select {
+  margin: 5px;
+  padding: 10px 15px;
+  font-size: px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  transition: 0.2s ease-in-out;
+  font-family: inherit;  /* ← bodyと同じフォント（明朝体）を継承 */
+}
+
+select:hover, button:hover {
+  background-color: #e8f0fe;
+  cursor: pointer;
+}
+
+button {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+.correct {
+  color: #27ae60;
+  font-weight: bold;
+  font-size: 60px;
+  top 100px;
+  margin-top: 0px;
+}
+
+.incorrect {
+  color: #e74c3c;
+  font-weight: bold;
+  font-size: 60px;
+  top 100px;
+  margin-top: 0px;
+}
+
+#autoResult {
+  font-size: 200px;
+  text-align: center;
+  margin-top: 200px;
+}
+
+#manualResult, #fillResult {
+  margin-top: 20px;
+  font-size: 24px;
+}
+
+#autoProgress {
+  font-size: 18px;
+  color: #555;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  body {
+    font-size: 18px;
+  }
+
+  input, button, select {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .section {
+    padding: 15px;
+  }
+}
+#manualInputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 15px;
+  background-color: #f0f8ff;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  font-size: 24px;
+}
+
+#manualInputs select {
+  width: 70px;
+  font-size: 20px;
+}
+#komachiIcon {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  width: 300px;       /* 必要に応じて調整 */
+  height: auto;
+  z-index: 9999;      /* 最前面に表示されるように */
+}
+
+  </style>
+</head>
+<body>
+  <h1><b>小町算体験サイト</b></h1>
+
+  <!-- モード選択 -->
+  <div class="section">
+    <label>モード選択: </label>
+    <select id="modeSelect" onchange="switchMode()">
+      <option value="manual">計算機モード</option>
+      <option value="auto">自動計算モード</option>
+      <option value="fill">穴埋めモード</option>
+    </select>
+  </div>
+
+  <!-- 計算機モード -->
+  <div id="manualMode" class="section">
+    <h2>計算機モード</h2>
+    <div id="manualInputs"></div>
+    <button onclick="calculateManual()">計算する</button>
+    <div id="manualResult"></div>
+  </div>
+
+  <!-- 自動モード -->
+  <div id="autoMode" class="section" style="display:none">
+    <h2>自動計算モード</h2>
+    <button onclick="startAutoCalc()">開始</button>
+    <button onclick="stopAutoCalc()">停止</button>
+    <div id="autoProgress"></div>
+    <div id="autoResult"></div>
+  </div>
+
+  <!-- 穴埋めモード -->
+  <div id="fillMode" class="section" style="display:none">
+    <h2>穴埋めモード</h2>
+    <div id="fillQuestion"></div>
+    <div id="fillInputs"></div>
+    <button onclick="checkFillAnswer()">回答</button>
+    <div id="fillResult"></div>
+  </div>
+
+  <audio id="correctSound" src="./media/correct001.mp3"></audio>
+  <audio id="incorrectSound" src="https://soundeffect-lab.info/sound/voice/mp3/voice-incorrect1.mp3"></audio>
+  <img id="correctImage" src="./media/correctimg1.png" 
+     style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 1000; max-width: 50%; max-height: 50%;">
+  <img id="komachiIcon" src="./media/onono_komachi.png" alt="小野小町" />
+
+
+  <script>
+    const numbers = "123456789".split("");
+
+    function displayExpr(expr) {
+      return expr.replace(/\*/g, "×").replace(/\//g, "÷");
+    }
+    function showCorrectImage() {
+      const img = document.getElementById("correctImage");
+      if (img) {
+        img.style.display = "block";
+        setTimeout(() => {
+          img.style.display = "none";
+        }, 2000); // 2秒表示
+      }
+    }
+
+    function switchMode() {
+      const mode = document.getElementById("modeSelect").value;
+      document.getElementById("manualMode").style.display = mode === 'manual' ? 'block' : 'none';
+      document.getElementById("autoMode").style.display = mode === 'auto' ? 'block' : 'none';
+      document.getElementById("fillMode").style.display = mode === 'fill' ? 'block' : 'none';
+      if (mode === 'fill') generateFillQuestion();
+    }
+
+    window.onload = () => {
+      const container = document.getElementById("manualInputs");
+      container.innerHTML = "";
+      for (let i = 0; i < numbers.length - 1; i++) {
+        container.innerHTML += `${numbers[i]}<select id="op${i}"><option value="+">+</option><option value="-">-</option><option value="*">×</option><option value="/">÷</option><option value="">(連結)</option></select>`;
+      }
+      container.innerHTML += numbers[numbers.length - 1];
+      container.innerHTML+="　＝ 100 になるかな？"
+    }
+
+    function calculateManual() {
+      let expr = "";
+      for (let i = 0; i < 8; i++) {
+        let op = document.getElementById("op" + i).value;
+        expr += numbers[i] + (op === "×" ? "*" : op === "÷" ? "/" : op);
+      }
+      expr += numbers[8];
+      let result;
+      try {
+        result = eval(expr);
+      } catch (e) {
+        result = "エラー: " + e.message;
+      }
+
+      const correctSound = document.getElementById("correctSound");
+      const resultText = `${displayExpr(expr)} = ${result}`;
+      const resultDiv = document.getElementById("manualResult");
+
+      if (result === 100) {
+        correctSound.play();
+        showCorrectImage();
+        resultDiv.innerHTML = `<span class="correct">正解！ ${resultText}</span>`;
+      } else {
+        resultDiv.innerHTML = resultText;
+      }
+}
+
+
+    // 自動モード
+    let autoIndex = 0;
+    let autoRunning = false;
+    function startAutoCalc() {
+      autoIndex = 0;
+      autoRunning = true;
+      document.getElementById("autoProgress").innerText = "計算中...";
+      runAutoCalc();
+    }
+    function stopAutoCalc() {
+      autoRunning = false;
+      document.getElementById("autoProgress").innerText = "停止しました。";
+    }
+
+    function runAutoCalc() {
+      const ops = ["", "+", "-", "*", "/"];
+      const max = Math.pow(ops.length, 8);
+      const resultDiv = document.getElementById("autoResult");
+      const progressDiv = document.getElementById("autoProgress");
+      const correctSound = document.getElementById("correctSound");
+      const incorrectSound = document.getElementById("incorrectSound");
+
+      function next() {
+        if (!autoRunning || autoIndex >= max) {
+          progressDiv.innerText = "完了しました。";
+          return;
+        }
+        let idx = autoIndex;
+        let expr = "";
+        for (let i = 0; i < 8; i++) {
+          expr += numbers[i] + ops[Math.floor(idx / Math.pow(ops.length, 7 - i)) % ops.length];
+        }
+        expr += numbers[8];
+        let val = null;
+        let isCorrect = false;
+        try {
+          val = eval(expr);
+          isCorrect = (val === 100);
+        } catch {
+          val = null;
+        }
+
+        let display = `<div class="${isCorrect ? "correct" : "incorrect"}">${displayExpr(expr)} = ${val}</div>`;
+        resultDiv.innerHTML = display;
+
+        if (isCorrect) {
+          showCorrectImage();
+          correctSound.play();
+          setTimeout(() => {
+            autoIndex++;
+            if (autoIndex % 100 === 0) progressDiv.innerText = `計算中: ${autoIndex}/${max}`;
+            next();
+            
+          }, 3000);
+        } else {
+          if (val !== null) {
+            incorrectSound.play();
+            setTimeout(() => {
+              autoIndex++;
+              if (autoIndex % 100 === 0) progressDiv.innerText = `計算中: ${autoIndex}/${max}`;
+              next();
+            }, 1);
+          } else {
+            autoIndex++;
+            if (autoIndex % 100 === 0) progressDiv.innerText = `計算中: ${autoIndex}/${max}`;
+            next();
+          }
+        }
+      }
+      next();
+    }
+
+    // 穴埋めモード
+    let fillAnswer = [];
+    let fillMissing = [];
+    function generateFillQuestion() {
+      const ops = ["", "+", "-", "*", "/"];
+      let expr, result;
+      while (true) {
+        const currentOps = Array(8).fill(0).map(() => ops[Math.floor(Math.random() * ops.length)]);
+        expr = numbers.map((n, i) => i < 8 ? n + currentOps[i] : n).join("");
+        try {
+          result = eval(expr);
+          if (result === 100) {
+            fillAnswer = currentOps;
+            break;
+          }
+        } catch {}
+      }
+      const indices = [...Array(8).keys()];
+      fillMissing = indices.sort(() => 0.5 - Math.random()).slice(0, 3);
+      const question = numbers.map((n, i) => {
+        if (i < 8) {
+          return n + (fillMissing.includes(i) ? "□" : displayExpr(fillAnswer[i]));
+        } else {
+          return n;
+        }
+      }).join("");
+      document.getElementById("fillQuestion").innerText = question;
+      const inputs = document.getElementById("fillInputs");
+      inputs.innerHTML = "";
+      fillMissing.forEach((i, idx) => {
+        inputs.innerHTML += `${i + 1}の右隣の□に何が入るかな？ <select id="fill${idx}"><option value="">(連結)</option><option value="+">+</option><option value="-">-</option><option value="*">×</option><option value="/">÷</option></select><br>`;
+      });
+    }
+
+    function checkFillAnswer() {
+      const correctSound = document.getElementById("correctSound");
+      const incorrectSound = document.getElementById("incorrectSound");
+
+      let userOps = [...fillAnswer];
+      let correct = true;
+      fillMissing.forEach((i, idx) => {
+        const val = document.getElementById(`fill${idx}`).value;
+        let realVal = val === "×" ? "*" : val === "÷" ? "/" : val;
+        userOps[i] = realVal;
+        if (realVal !== fillAnswer[i]) correct = false;
+      });
+      const expr = numbers.map((n, i) => i < 8 ? n + (userOps[i] || "") : n).join("");
+      if (correct) {
+        correctSound.play();
+        document.getElementById("fillResult").innerHTML = `<span class="correct">正解！ ${displayExpr(expr)} = 100</span>`;
+      } else {
+        incorrectSound.play();
+        document.getElementById("fillResult").innerHTML = `<span class="incorrect">不正解: ${displayExpr(expr)}</span>`;
+      }
+      if (correct) {
+      correctSound.play();
+      showCorrectImage(); // ← 追加
+      document.getElementById("fillResult").innerHTML = `<span class="correct">正解！ ${displayExpr(expr)} = 100</span>`;
+    }
+
+    }
+
+  </script>
+</body>
+</html>
